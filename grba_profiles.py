@@ -71,14 +71,14 @@ def bounds_ry(y, kap, sig, thv):
     return [0.0, r0_max(y, kap, sig, thv)]
 
 def main():
-    base_int = nquad(fluxG, [bounds_Y, bounds_Chi])
-    tiny = np.power(10.0, -9.0)
-    oa_str_int = nquad(fluxG_oaStr, [bounds_chi, bounds_y], args = (tiny, 3.0))[0]
-    str_int = nquad(fluxG_fullStr, [bounds_ry, bounds_yr], args = (tiny, 3.0, 0.0))[0]
-    print base_int
-    print oa_str_int
-    print str_int
-    print np.abs(oa_str_int - str_int)/str_int*100.0
+    # base_int = nquad(fluxG, [bounds_Y, bounds_Chi])
+    # tiny = np.power(10.0, -9.0)
+    SIGMA = 2.0
+    for kap in range(11):
+        KAPPA = float(kap) + 0.01
+        oa_str_int = nquad(fluxG_oaStr, [bounds_chi, bounds_y], args = (KAPPA, SIGMA))[0]
+        str_int = nquad(fluxG_fullStr, [bounds_ry, bounds_yr], args = (KAPPA, SIGMA, 0.0))[0]
+        print oa_str_int, str_int, np.abs(oa_str_int - str_int)/str_int*100.0
 
 
 if __name__ == "__main__":
