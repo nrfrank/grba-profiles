@@ -23,7 +23,7 @@ def bounds_Y(chi, k = 0.0):
 def bounds_Chi():
     return [1.0, np.inf]
 
-def fluxG_oaStr(chi, y, kap, sig, gA = 1.0, k = 0.0, p = 2.2):
+def fluxG_oaStr(y, chi, kap, sig, gA = 1.0, k = 0.0, p = 2.2):
     Gk = (4.0 - k)*gA**2.0
     C_const = np.divide(np.power(np.log(2.0), 1.0/kap), (4.0 - k)*gA**2.0*sig**2.0)
     C_yChi = np.divide(y - chi*np.power(y, 5.0 - k), y**2.0)
@@ -34,11 +34,13 @@ def fluxG_oaStr(chi, y, kap, sig, gA = 1.0, k = 0.0, p = 2.2):
     cov = np.divide(np.power(y, 5.0 - k), 2.0*Gk)
     return 2.0*np.pi*cov*intG(y, chi)/denom
 
-def bounds_y(t0, t1):
-    return [0.0, 1.0]
+def bounds_y(chi, t0, t1, k = 0.0):
+    # return [0.0, 1.0]
+    return [0.0, np.power(chi, np.divide(1.0, k - 4.0))]
 
-def bounds_chi(y, t0, t1, k = 0.0):
-    return [1.0, np.power(y, k - 4.0)]
+def bounds_chi(t0, t1):
+    #return [1.0, np.power(y, k - 4.0)]
+    return [1.0, np.inf]
 
 def thetaPrime(r, thv, phi):
     top = r*(np.cos(thv)**2.0 - 0.25*np.sin(2.0*thv)**2.0*np.cos(phi)**2.0)**2.0
@@ -74,12 +76,13 @@ def main():
     # base_int = nquad(fluxG, [bounds_Y, bounds_Chi])
     tiny = np.power(10.0, -3.0)
     SIGMA = 2.0
-    KAPPA = tiny
-    #for kap in range(11):
-    #    KAPPA = float(kap) + 0.01
-    oa_str_int = nquad(fluxG_oaStr, [bounds_chi, bounds_y], args = (KAPPA, SIGMA))[0]
-    str_int = nquad(fluxG_fullStr, [bounds_ry, bounds_yr], args = (KAPPA, SIGMA, 0.0))[0]
-    print oa_str_int, str_int, np.abs(oa_str_int - str_int)/str_int*100.0
+    #KAPPA = tiny
+    for kap in range(11):
+        KAPPA = float(kap) + 0.01
+        #oa_str_int = nquad(fluxG_oaStr, [bounds_chi, bounds_y], args = (KAPPA, SIGMA))[0]
+        oa_str_int = nquad(fluxG_oaStr, [bounds_y, bounds_chi], args = (KAPPA, SIGMA))[0]
+        str_int = nquad(fluxG_fullStr, [bounds_ry, bounds_yr], args = (KAPPA, SIGMA, 0.0))[0]
+        print oa_str_int, str_int, np.abs(oa_str_int - str_int)/str_int*100.0
 
 
 if __name__ == "__main__":
