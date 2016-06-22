@@ -16,13 +16,6 @@ using namespace std;
 
 const Doub TORAD = M_PI / 180.0;
 
-struct integrand
-{
-	Doub operator() (const Doub x) {
-		return pow(sin(x), 2);
-	}
-};
-
 int addition(int a, int b)
 {
 	int r;
@@ -65,19 +58,19 @@ struct RootFunc
 };
 
 template <class T>
-pair <Doub, Int> rtnewt(T &RootFunc, const Doub g, const Doub xacc) {
+Doub rtnewt(T &func, const Doub g, const Doub xacc) {
 	const Int JMAX = 20;
 	Doub rtn = g;
 	for (Int j = 0; j < JMAX; j++) {
-		Doub f = RootFunc.f(rtn);
-		Doub df = RootFunc.df(rtn);
+		Doub f = func.f(rtn);
+		Doub df = func.df(rtn);
 		Doub dx = f / df;
 		//cout << f << ", " << df << ", " << dx;
 		rtn -= dx;
 		if (abs(dx) < xacc) {
 			//cout << "Convergance in " << j << " steps.";
-			pair <Doub, Int> rtnPair(rtn, j);
-			return rtnPair;
+			//pair <Doub, Int> rtnPair(rtn, j);
+			return rtn;
 		}
 	}
 	throw("Maximum number of iterations exceeded in rtnewt");
@@ -90,45 +83,79 @@ struct paramsPhi
 		r0(R0), kap(KAP), thv(THV*TORAD), sig(SIG) {}
 };
 
+struct integrandPhi
+{
+	const Doub r0, kap, thv, sig, phi;
+	integrandPhi(const Doub R0, const Doub KAP, const Doub THV, const Doub SIG, const Doub PHI) :
+		r0(R0), kap(KAP), thv(THV*TORAD), sig(SIG), phi(PHI*TORAD) {}
+	Doub operator() (const Doub x) {
+		return pow(sin(x), 2);
+	}
+	Doub f(const Doub r) {
+		const Doub thp = thetaPrime(r, thv, sig, phi);
+		const Doub eng = energyProfile(thp, sig, kap);
+		const Doub lhs = (pow(r, 2) + 2.0*r*tan(thv)*cos(phi) + pow(tan(thv), 2))*eng;
+		const Doub thp0 = thetaPrime(r, thv, sig, 0.0);
+		const Doub eng0 = energyProfile(thp0, sig, kap);
+		const Doub rhs = pow(r0 + tan(thv), 2)*eng0;
+		return lhs - rhs;
+	}
+	Doub df(const Doub r) {
+		const Doub thp = thetaPrime(r, thv, sig, phi);
+		const Doub first = r + tan(thv)*cos(phi);
+		const Doub second = pow(r, 2) + 2 * r*tan(thv)*cos(phi) + pow(tan(thv), 2);
+		const Doub frac = (kap*log(2.0)*pow(thp / sig, 2.0*kap)) / (r*(1.0 + 0.5*r*sin(2.0*thv)*cos(phi)));
+		const Doub exponent = 2.0*energyProfile(thp, sig, kap);
+		return (first - second*frac)*exponent;
+	}
+};
+
+struct QuadraturePhi {
+	Int n;
+	virtual Doub next() = 0;
+};
+
 template<class T>
-struct TrapzdPhi {
+struct TrapzdPhi : QuadraturePhi {
 	Doub a, b, s;
 	T &func;
 	TrapzdPhi() {};
 	TrapzdPhi(T &funcc, const Doub aa, const Doub bb) :
 		func(funcc), a(aa), b(bb) {
-		Int n = 1;
+		n = 0;
 	}
-	Doub next(paramsPhi params) {
-		cout << "n = " << n;
-		Doub phi, tnm, sum, del;
+	Doub next() {
+		Doub x, tnm, sum, del;
 		Int it, j;
 		n++;
-		for (it = 1, j = 1; j<n - 1; j++) it <<= 1;
-		tnm = it;
-		del = (b - a) / tnm;
-		phi = a + 0.5*del;
-		Doub R0 = params.r0, KAPPA = params.kap, THETA_V = params.thv, SIGMA = params.sig;
-		Doub G = R0;
-		for (sum = 0.0, j = 0; j < it; j++, phi += del) {
-			RootFunc rfunc(R0, KAPPA, THETA_V, SIGMA, phi);
-			Doub r = rtnewt(rfunc, G, 1.0e-11);
-			Doub f = R0 / r;
-			G = r;
-			sum += func(phi)*f;
+		FILE * ofile;
+		ofile = fopen("phi-integration-test.txt", "a+");
+		if (n == 1) {
+			return (s = 0.5*(b - a)*(func(a) + func(b)));
 		}
-		s = 0.5*(s + (b - a)*sum / tnm);
-		return s;
+		else {
+			for (it = 1, j = 1; j<n - 1; j++) it <<= 1;
+			tnm = it;
+			del = (b - a) / tnm;
+			x = a + 0.5*del;
+			for (sum = 0.0, j = 0; j < it; j++, x += del) {
+				sum += func(x);
+				fprintf(ofile, "%d\t%d\t%f\t%f\n", n, j, x, sum);
+			}
+			fclose(ofile);
+			s = 0.5*(s + (b - a)*sum / tnm);
+			return s;
+		}
 	}
 };
 
 template<class T>
-Doub qsimpPhi(T &integrand, paramsPhi params, const Doub a, const Doub b, const Doub eps = 1.0e-10) {
+Doub qsimpPhi(T &func, const Doub a, const Doub b, const Doub eps = 1.0e-10) {
 	const Int JMAX = 20;
 	Doub s, st, ost = 0.0, os = 0.0;
-	TrapzdPhi<T> t(integrand, a*TORAD, b*TORAD);
-	for (Int j = 0; j < JMAX; j++) {
-		st = t.next(params);
+	TrapzdPhi<T> t(func, a, b);
+	for (Int j = 0; j<JMAX; j++) {
+		st = t.next();
 		s = (4.0*st - ost) / 3.0;
 		if (j > 5)
 			if (abs(s - os) < eps*abs(os) ||
@@ -136,21 +163,25 @@ Doub qsimpPhi(T &integrand, paramsPhi params, const Doub a, const Doub b, const 
 		os = s;
 		ost = st;
 	}
-	throw("Too man steps in routine qsimpPhi");
+	throw("Too many steps in routine qsimp");
 }
 
 int main(void)
 {
+	
 	Doub R0, KAPPA, THETA_V, SIGMA, PHI, G;
-	char filename[50];
-	FILE * ofile;
 	R0 = 0.1;
 	KAPPA = 1.0;
 	THETA_V = 6.0;
 	SIGMA = 2.0;
 	PHI = 5.0;
 	G = R0;
+	/*
+	char filename[50];
+	FILE * ofile;
 	Doub YVAL = 0.5, RMAX;
+	cout << "Enter values for R0, KAPPA, and THETA_V: \n";
+	cin >> R0 >> KAPPA >> THETA_V;
 	sprintf(filename, "phiRoot_r0=%f_kap=%f_thv=%f.txt", R0, KAPPA, THETA_V);
 	ofile = fopen(filename, "w");
 	fprintf(ofile, "PHI\tR\tNSTEPS\n");
@@ -161,10 +192,37 @@ int main(void)
 		fprintf(ofile, "%f\t%f\t%d\n", PHI, root.first, root.second);
 		G = root.first;
 	}
+	fclose(ofile);
+	*/
+
+	// Test out modifications to standard Trapzd and qsimp routines.
+	FILE * ofile;
+	ofile = fopen("phi-integration-test.txt", "w");
+	fprintf(ofile, "n\tj\tx\ts\n");
+	fclose(ofile);
+	integrandPhi intFunc(R0, KAPPA, THETA_V, SIGMA, PHI);
+	Doub intVal = qsimpPhi(intFunc, 0.0, 360.0);
 	
-	paramsPhi p(R0, KAPPA, THETA_V, SIGMA, PHI);
-	/*
-	Doub intVal = qsimpPhi(ifunc, p, 0.0, 360.0);
-	ofile << "The integration gives: " << intVal << "\n";*/
+	//RootFunc rFunc(R0, KAPPA, THETA_V, SIGMA, PHI);
+	Doub rootVal = rtnewt(intFunc, G, 1.0e-11);
+	cout << intVal << "\t" << rootVal;
+
+	// Run a test to better understand the Trapzd method.
+	/*Int n, it, j;
+	Doub x, tnm, del, a = 0.0, b = 360.0;
+	cout << "Enter maximum refinement level (n): \n";
+	cin >> n;
+	for (it = 1, j = 1; j < n - 1; j++) {
+		it <<= 1;
+		printf("j = %d, it = %d\n", j, it);
+	}
+	tnm = it;
+	del = (b - a) / tnm;
+	printf("tnm = %f, del = %f\n", tnm, del);
+	x = a + 0.5*del;
+	for (j = 0; j < it; j++, x += del) {
+		printf("j = %d, x = %f\n", j, x);
+	}*/
+
 	return 0;
 }

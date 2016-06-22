@@ -1,6 +1,6 @@
 struct Quadrature {
 	Int n;
-	//virtual Doub next() = 0;
+	virtual Doub next() = 0;
 };
 template<class T>
 struct Trapzd : Quadrature {
