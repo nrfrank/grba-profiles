@@ -59,17 +59,19 @@ struct RootFunc
 
 template <class T>
 Doub rtnewt(T &func, const Doub g, const Doub xacc) {
-	const Int JMAX = 20;
+//pair <Doub, Int> rtnewt(T &func, const Doub g, const Doub xacc) {
+	const Int JMAX = 25;
 	Doub rtn = g;
 	for (Int j = 0; j < JMAX; j++) {
 		Doub f = func.f(rtn);
 		Doub df = func.df(rtn);
 		Doub dx = f / df;
-		//cout << f << ", " << df << ", " << dx;
 		rtn -= dx;
+		cout << j << "\t" << f << "\t" << df << "\t" << dx << "\t" << rtn << endl;
 		if (abs(dx) < xacc) {
 			//cout << "Convergance in " << j << " steps.";
 			//pair <Doub, Int> rtnPair(rtn, j);
+			//return rtnPair;
 			return rtn;
 		}
 	}
@@ -85,11 +87,12 @@ struct paramsPhi
 
 struct integrandPhi
 {
-	const Doub r0, kap, thv, sig, phi;
-	integrandPhi(const Doub R0, const Doub KAP, const Doub THV, const Doub SIG, const Doub PHI) :
+	const Doub r0, kap, thv, sig;
+	Doub phi;
+	integrandPhi(const Doub R0, const Doub KAP, const Doub THV, const Doub SIG, Doub PHI) :
 		r0(R0), kap(KAP), thv(THV*TORAD), sig(SIG), phi(PHI*TORAD) {}
-	Doub operator() (const Doub x) {
-		return pow(sin(x), 2);
+	Doub i(const Doub x) {
+		return 1.0;
 	}
 	Doub f(const Doub r) {
 		const Doub thp = thetaPrime(r, thv, sig, phi);
@@ -128,19 +131,24 @@ struct TrapzdPhi : QuadraturePhi {
 		Doub x, tnm, sum, del;
 		Int it, j;
 		n++;
+		//cout << n << endl;
 		FILE * ofile;
 		ofile = fopen("phi-integration-test.txt", "a+");
 		if (n == 1) {
-			return (s = 0.5*(b - a)*(func(a) + func(b)));
+			return (s = 0.5*(b - a)*(func.i(a) + func.i(b)));
 		}
 		else {
 			for (it = 1, j = 1; j<n - 1; j++) it <<= 1;
 			tnm = it;
 			del = (b - a) / tnm;
 			x = a + 0.5*del;
+			Doub G = func.r0;
 			for (sum = 0.0, j = 0; j < it; j++, x += del) {
-				sum += func(x);
-				fprintf(ofile, "%d\t%d\t%f\t%f\n", n, j, x, sum);
+				sum += func.i(x);
+				func.phi = x;
+				Doub rp = rtnewt(func, G, 1.0e-3);
+				G = rp;
+				fprintf(ofile, "%f\t%d\t%d\t%f\t%f\t%f\n",rp, n, j, x, func.phi, sum);
 			}
 			fclose(ofile);
 			s = 0.5*(s + (b - a)*sum / tnm);
@@ -166,6 +174,24 @@ Doub qsimpPhi(T &func, const Doub a, const Doub b, const Doub eps = 1.0e-10) {
 	throw("Too many steps in routine qsimp");
 }
 
+template <class T>
+Doub qrombPhi(T &func, Doub a, Doub b, const Doub eps = 1.0e-10) {
+	const Int JMAX = 20, JMAXP = JMAX + 1, K = 5;
+	VecDoub s(JMAX), h(JMAXP);
+	Poly_interp polint(h, s, K);
+	h[0] = 1.0;
+	TrapzdPhi<T> t(func, a, b);
+	for (Int j = 1; j <= JMAX; j++) {
+		s[j - 1] = t.next();
+		if (j >= K) {
+			Doub ss = polint.rawinterp(j - K, 0.0);
+			if (abs(polint.dy) <= eps*abs(ss)) return ss;
+		}
+		h[j] = 0.25*h[j - 1];
+	}
+	throw("Too many steps in routine qromb");
+}
+
 int main(void)
 {
 	
@@ -176,32 +202,31 @@ int main(void)
 	SIGMA = 2.0;
 	PHI = 5.0;
 	G = R0;
-	/*
-	char filename[50];
-	FILE * ofile;
-	Doub YVAL = 0.5, RMAX;
-	cout << "Enter values for R0, KAPPA, and THETA_V: \n";
-	cin >> R0 >> KAPPA >> THETA_V;
-	sprintf(filename, "phiRoot_r0=%f_kap=%f_thv=%f.txt", R0, KAPPA, THETA_V);
-	ofile = fopen(filename, "w");
-	fprintf(ofile, "PHI\tR\tNSTEPS\n");
-	for (int p = 0; p <= 500; p++) {
-		PHI = 360.0*p / 500.0;
-		RootFunc fx(R0, KAPPA, THETA_V, SIGMA, PHI);
-		pair <Doub, Int> root = rtnewt(fx, G, 1.0e-11);
-		fprintf(ofile, "%f\t%f\t%d\n", PHI, root.first, root.second);
-		G = root.first;
-	}
-	fclose(ofile);
-	*/
+	//char filename[50];
+	//FILE * ofile;
+	//Doub YVAL = 0.5, RMAX;
+	////cout << "Enter values for R0, KAPPA, and THETA_V: \n";
+	////cin >> R0 >> KAPPA >> THETA_V;
+	//sprintf(filename, "phiRoot_r0=%f_kap=%f_thv=%f.txt", R0, KAPPA, THETA_V);
+	//ofile = fopen(filename, "w");
+	//fprintf(ofile, "PHI\tR\tNSTEPS\n");
+	//for (int p = 0; p <= 5; p++) {
+	//	PHI = 360.0*p / 5.0;
+	//	RootFunc fx(R0, KAPPA, THETA_V, SIGMA, PHI);
+	//	pair <Doub, Int> root = rtnewt(fx, G, 1.0e-11);
+	//	fprintf(ofile, "%f\t%f\t%d\n", PHI, root.first, root.second);
+	//	G = root.first;
+	//}
+	//fclose(ofile);
 
 	// Test out modifications to standard Trapzd and qsimp routines.
 	FILE * ofile;
 	ofile = fopen("phi-integration-test.txt", "w");
-	fprintf(ofile, "n\tj\tx\ts\n");
+	fprintf(ofile, "rp\tn\tj\tx\tphi\tsum\n");
 	fclose(ofile);
 	integrandPhi intFunc(R0, KAPPA, THETA_V, SIGMA, PHI);
-	Doub intVal = qsimpPhi(intFunc, 0.0, 360.0);
+	//Doub intVal = qsimpPhi(intFunc, 0.0, 360.0);
+	Doub intVal = qrombPhi(intFunc, 0.0, 360.0);
 	
 	//RootFunc rFunc(R0, KAPPA, THETA_V, SIGMA, PHI);
 	Doub rootVal = rtnewt(intFunc, G, 1.0e-11);
