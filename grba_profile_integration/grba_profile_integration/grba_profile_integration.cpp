@@ -144,9 +144,10 @@ struct TrapzdPhi : QuadraturePhi {
 			x = a + 0.5*del;
 			Doub G = func.r0;
 			for (sum = 0.0, j = 0; j < it; j++, x += del) {
-				sum += func.i(x);
-				func.phi = x;
-				Doub rp = rtnewt(func, G, 1.0e-3);
+				//func.phi = x;
+				integrandPhi ifunc(func.r0, func.kap, func.thv, func.sig, x);
+				Doub rp = rtnewt(ifunc, G, 1.0e-9);
+				sum += func.i(x)*pow(rp / func.r0, 2.0);
 				G = rp;
 				fprintf(ofile, "%f\t%d\t%d\t%f\t%f\t%f\n",rp, n, j, x, func.phi, sum);
 			}
@@ -197,7 +198,7 @@ int main(void)
 	
 	Doub R0, KAPPA, THETA_V, SIGMA, PHI, G;
 	R0 = 0.1;
-	KAPPA = 1.0;
+	KAPPA = 10.0;
 	THETA_V = 6.0;
 	SIGMA = 2.0;
 	PHI = 5.0;
