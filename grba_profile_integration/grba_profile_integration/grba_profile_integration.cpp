@@ -60,14 +60,14 @@ struct RootFunc
 template <class T>
 Doub rtnewt(T &func, const Doub g, const Doub xacc) {
 //pair <Doub, Int> rtnewt(T &func, const Doub g, const Doub xacc) {
-	const Int JMAX = 25;
+	const Int JMAX = 15;
 	Doub rtn = g;
 	for (Int j = 0; j < JMAX; j++) {
 		Doub f = func.f(rtn);
 		Doub df = func.df(rtn);
 		Doub dx = f / df;
 		rtn -= dx;
-		cout << j << "\t" << f << "\t" << df << "\t" << dx << "\t" << rtn << endl;
+		//cout << j << "\t" << f << "\t" << df << "\t" << dx << "\t" << rtn << endl;
 		if (abs(dx) < xacc) {
 			//cout << "Convergance in " << j << " steps.";
 			//pair <Doub, Int> rtnPair(rtn, j);
@@ -132,8 +132,8 @@ struct TrapzdPhi : QuadraturePhi {
 		Int it, j;
 		n++;
 		//cout << n << endl;
-		FILE * ofile;
-		ofile = fopen("phi-integration-test.txt", "a+");
+		//FILE * ofile;
+		//ofile = fopen("phi-integration-test.txt", "a+");
 		if (n == 1) {
 			return (s = 0.5*(b - a)*(func.i(a) + func.i(b)));
 		}
@@ -146,12 +146,12 @@ struct TrapzdPhi : QuadraturePhi {
 			for (sum = 0.0, j = 0; j < it; j++, x += del) {
 				//func.phi = x;
 				integrandPhi ifunc(func.r0, func.kap, func.thv, func.sig, x);
-				Doub rp = rtnewt(ifunc, G, 1.0e-9);
+				Doub rp = rtnewt(ifunc, G, 1.0e-11);
 				sum += func.i(x)*pow(rp / func.r0, 2.0);
 				G = rp;
-				fprintf(ofile, "%f\t%d\t%d\t%f\t%f\t%f\n",rp, n, j, x, func.phi, sum);
+				//fprintf(ofile, "%f\t%d\t%d\t%f\t%f\t%f\n",rp, n, j, x, func.phi, sum);
 			}
-			fclose(ofile);
+			//fclose(ofile);
 			s = 0.5*(s + (b - a)*sum / tnm);
 			return s;
 		}
@@ -197,17 +197,16 @@ int main(void)
 {
 	
 	Doub R0, KAPPA, THETA_V, SIGMA, PHI, G;
-	R0 = 0.1;
-	KAPPA = 10.0;
-	THETA_V = 6.0;
+	//R0 = 0.1;
+	//KAPPA = 10.0;
+	//THETA_V = 6.0;
 	SIGMA = 2.0;
-	PHI = 5.0;
+	PHI = 0.0;
+	cout << "Enter values for R0, KAPPA, and THETA_V:\n";
+	cin >> R0 >> KAPPA >> THETA_V;
 	G = R0;
-	//char filename[50];
-	//FILE * ofile;
-	//Doub YVAL = 0.5, RMAX;
-	////cout << "Enter values for R0, KAPPA, and THETA_V: \n";
-	////cin >> R0 >> KAPPA >> THETA_V;
+
+	// Perform some root finder tests. Counting number of steps to convergence.
 	//sprintf(filename, "phiRoot_r0=%f_kap=%f_thv=%f.txt", R0, KAPPA, THETA_V);
 	//ofile = fopen(filename, "w");
 	//fprintf(ofile, "PHI\tR\tNSTEPS\n");
@@ -221,17 +220,17 @@ int main(void)
 	//fclose(ofile);
 
 	// Test out modifications to standard Trapzd and qsimp routines.
-	FILE * ofile;
-	ofile = fopen("phi-integration-test.txt", "w");
-	fprintf(ofile, "rp\tn\tj\tx\tphi\tsum\n");
-	fclose(ofile);
+	//FILE * ofile;
+	//ofile = fopen("phi-integration-test.txt", "w");
+	//fprintf(ofile, "rp\tn\tj\tx\tphi\tsum\n");
+	//fclose(ofile);
 	integrandPhi intFunc(R0, KAPPA, THETA_V, SIGMA, PHI);
 	//Doub intVal = qsimpPhi(intFunc, 0.0, 360.0);
 	Doub intVal = qrombPhi(intFunc, 0.0, 360.0);
 	
 	//RootFunc rFunc(R0, KAPPA, THETA_V, SIGMA, PHI);
-	Doub rootVal = rtnewt(intFunc, G, 1.0e-11);
-	cout << intVal << "\t" << rootVal;
+	//Doub rootVal = rtnewt(intFunc, G, 1.0e-11);
+	//cout << intVal << "\t" << rootVal;
 
 	// Run a test to better understand the Trapzd method.
 	/*Int n, it, j;
