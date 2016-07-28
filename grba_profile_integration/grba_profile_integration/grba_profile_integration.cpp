@@ -10,7 +10,7 @@
 #include "nr3.h"
 #include "interp_1d.h"
 #include "quadrature.h"
-//#include "romberg.h"
+#include "romberg.h"
 
 using namespace std;
 
@@ -33,10 +33,10 @@ Doub energyProfile(const Doub thp, const Doub sig, const Doub kap) {
 	return exp2(-pow(thp / sig, 2.0*kap));
 }
 
-struct RootFunc
+struct RootFuncPhi
 {
 	const Doub r0, kap, thv, sig, phi;
-	RootFunc(const Doub R0, const Doub KAP, const Doub THV, const Doub SIG, const Doub PHI) : 
+	RootFuncPhi(const Doub R0, const Doub KAP, const Doub THV, const Doub SIG, const Doub PHI) : 
 		r0(R0), kap(KAP), thv(THV), sig(SIG), phi(PHI) {}
 	Doub f(const Doub r) {
 		const Doub thp = thetaPrime(r, thv, phi);
@@ -63,14 +63,14 @@ struct RootFunc
 template <class T>
 Doub rtnewt(T &func, const Doub g, const Doub xacc){
 	const Int JMAX = 25;
-	Doub rtn = g;
+	Doub rtn = g, alpha = 1.0;
 	for (Int j = 0; j < JMAX; j++) {
 		Doub f = func.f(rtn);
 	    Doub df = func.df(rtn);
         /*Doub f = func(rtn);
         Doub df = dfunc(rtn);*/
         Doub dx = f / df;
-		rtn -= dx;
+		rtn -= alpha*dx;
 		//cout << j << "\t" << f << "\t" << df << "\t" << dx << "\t" << rtn << endl;
 		if (abs(dx) < xacc) {
 			//cout << "Convergance in " << j << " steps.";
@@ -92,13 +92,13 @@ struct paramsPhi
 struct integrandPhi
 {
 	const Doub r0, kap, thv, sig;
-	Doub phi;
-	integrandPhi(const Doub R0, const Doub KAP, const Doub THV, const Doub SIG, Doub PHI) :
-		r0(R0), kap(KAP), thv(THV), sig(SIG), phi(PHI) {}
+	//Doub phi;
+	integrandPhi(const Doub R0, const Doub KAP, const Doub THV, const Doub SIG) :
+		r0(R0), kap(KAP), thv(THV), sig(SIG) {}
 	Doub i(Doub x) {
 		return 1.0;
 	}
-	Doub f(const Doub r) {
+	/*Doub f(const Doub r) {
 		const Doub thp = thetaPrime(r, thv, phi);
 		const Doub eng = energyProfile(thp, sig, kap);
 		const Doub lhs = (pow(r, 2) + 2.0*r*tan(thv)*cos(phi) + pow(tan(thv), 2))*eng;
@@ -114,27 +114,8 @@ struct integrandPhi
 		const Doub frac = (kap*log(2.0)*pow(thp / sig, 2.0*kap)) / (r*(1.0 + 0.5*r*sin(2.0*thv)*cos(phi)));
 		const Doub exponent = 2.0*energyProfile(thp, sig, kap);
 		return (first - second*frac)*exponent;
-	}
+	}*/
 };
-
-//struct integrandR0
-//{
-//	const Doub y, kap, thv, sig, gA, k, p;
-//	Doub r0, phi;
-//	integrandR0(Doub R0, Doub PHI, const Doub Y, const Doub KAP, const Doub THV, const Doub SIG, const Doub GA = 1.0, const Doub K = 0.0, const Doub P = 2.2) :
-//		r0(R0), phi(PHI), y(Y), kap(KAP), thv(THV), sig(SIG), gA(GA), k(K), p(P) {}
-//    Doub i(Doub r0) {
-//        const Doub bG = (1.0 - p) / 2.0;
-//        const Doub Gk = (4.0 - k)*pow(gA, 2.0);
-//        integrandPhi intFunc(r0, kap, thv*TORAD, sig, phi*TORAD);
-//        Doub intVal = qrombPhi(intFunc, 0.0, 2.0*M_PI);
-//        Doub thP0 = thetaPrime(r0, thv, 0.0);
-//        Doub exp0 = pow(thP0 / sig, 2.0*kap);
-//        Doub chiVal = (y - Gk*pow(tan(thv) + r0, 2.0)*exp2(-exp0)) / pow(y, 5.0 - k);
-//        Doub chis = pow(chiVal, (7.0*k - 23.0 + bG*(13.0 + k)) / (6.0*(4.0 - k)));
-//        Doub fac = pow((7.0 - 2.0*k)*chiVal*pow(y, 4.0 - k) + 1.0, bG - 2.0);
-//    }
-//};
 
 struct QuadraturePhi {
 	Int n;
@@ -172,11 +153,12 @@ struct TrapzdPhi : QuadraturePhi {
 			for (sum = 0.0, j = 0; j < it; j++, x += del) {
 				//func.phi = x;
 				//integrandPhi ifunc(func.r0, func.kap, func.thv, func.sig, x);
-				RootFunc rFunc(func.r0, func.kap, func.thv, func.sig, x);
-				Doub rp = rtnewt(rFunc, G, 1.0e-9);
+				RootFuncPhi rFunc(func.r0, func.kap, func.thv, func.sig, x);
+				Doub rp = rtnewt(rFunc, G, 1.0e-6);
 				sum += func.i(x)*pow(rp / func.r0, 2.0);
 				G = rp;
 				//printf("r0 = %f, kap = %f, thv = %f, phi = %f, rp = %f, f = %f\n", func.r0, func.kap, func.thv, x, rp, sum);
+                //printf("phi = %f, rp = %f, rp/r0^2 = %f, f = %f\n", x, rp, pow(rp / func.r0, 2.0), sum);
 				//fprintf(ofile, "%f\t%d\t%d\t%f\t%f\t%f\n",rp, n, j, x, func.phi, sum);
 			}
 			//fclose(ofile);
@@ -208,7 +190,7 @@ Doub qsimpPhi(T &func, const Doub a, const Doub b, const Doub eps = 1.0e-10) {
 }
 
 template <class T>
-Doub qrombPhi(T &func, Doub a, Doub b, const Doub eps = 1.0e-7) {
+Doub qrombPhi(T &func, Doub a, Doub b, const Doub eps = 1.0e-5) {
 	const Int JMAX = 20, JMAXP = JMAX + 1, K = 5;
 	VecDoub s(JMAX), h(JMAXP);
 	Poly_interp polint(h, s, K);
@@ -216,10 +198,10 @@ Doub qrombPhi(T &func, Doub a, Doub b, const Doub eps = 1.0e-7) {
 	TrapzdPhi<T> t(func, a, b);
 	for (Int j = 1; j <= JMAX; j++) {
 		s[j - 1] = t.next();
-		//printf("%d\t%e\n", j, s[j - 1]);
-		//cin.get();
 		if (j >= K) {
 			Doub ss = polint.rawinterp(j - K, 0.0);
+            printf("%d\t%e\t%e\t%e\n", j, s[j - 1], abs(polint.dy), eps*abs(ss));
+            cin.get();
 			if (abs(polint.dy) <= eps*abs(ss)) return ss;
 		}
 		h[j] = 0.25*h[j - 1];
@@ -227,19 +209,62 @@ Doub qrombPhi(T &func, Doub a, Doub b, const Doub eps = 1.0e-7) {
 	throw("Too many steps in routine qrombPhi");
 }
 
+struct integrandR0
+{
+    const Doub y, kap, thv, sig, gA, k, p;
+    Doub r0;
+    integrandR0(const Doub Y, const Doub KAP, const Doub THV, const Doub SIG, const Doub GA = 1.0, const Doub K = 0.0, const Doub P = 2.2) :
+        y(Y), kap(KAP), thv(THV), sig(SIG), gA(GA), k(K), p(P) {}
+    Doub operator() (Doub r0) {
+        const Doub bG = (1.0 - p) / 2.0;
+        const Doub Gk = (4.0 - k)*pow(gA, 2.0);
+        //cout << "Value of r0: " << r0 << endl;
+        integrandPhi intFunc(r0, kap, thv, sig);
+        Doub intVal = qrombPhi(intFunc, 0.0, 2.0*M_PI);
+        Doub thP0 = thetaPrime(r0, thv, 0.0);
+        Doub exp0 = pow(thP0 / sig, 2.0*kap);
+        Doub chiVal = (y - Gk*pow(tan(thv) + r0, 2.0)*exp2(-exp0)) / pow(y, 5.0 - k);
+        Doub chis = pow(chiVal, (7.0*k - 23.0 + bG*(13.0 + k)) / (6.0*(4.0 - k)));
+        Doub fac = pow((7.0 - 2.0*k)*chiVal*pow(y, 4.0 - k) + 1.0, bG - 2.0);
+        return r0*chis*fac;
+    }
+};
+
+struct RootFuncR0
+{
+    const Doub y, kap, sig, thv, gA, k, p;
+    RootFuncR0(const Doub Y, const Doub KAP, const Doub SIG, const Doub THV, const Doub GA = 1.0, const Doub K = 0.0, const Doub P = 2.2) :
+        y(Y), kap(KAP), thv(THV), sig(SIG), gA(GA), k(K), p(P) {}
+    const Doub Gk = (4.0 - k)*pow(gA, 2.0);
+    Doub f(Doub r0) {
+        Doub thP0 = thetaPrime(r0, thv, 0.0);
+        Doub exp0 = pow(thP0 / sig, 2.0*kap);
+        Doub rhs = pow(tan(thv) + r0, 2.0)*exp2(-exp0);
+        Doub lhs = (y - pow(y, 5.0 - k)) / Gk;
+        return rhs - lhs;
+    }
+    Doub df(Doub r0) {
+        Doub thp = thetaPrime(r0, thv, 0.0);
+        Doub first = r0 + tan(thv);
+        Doub second = pow(r0 + tan(thv), 2.0);
+        Doub frac = (kap*log(2.0)*pow(thp / sig, 2.0*kap)) / (r0*(1.0 + 0.5*r0*sin(2.0*thv)));
+        Doub exponent = 2.0*energyProfile(thp, sig, kap);
+        return (first - second*frac)*exponent;
+    }
+};
+
 int main(void)
 {
-	
-	Doub R0, KAPPA, THETA_V, SIGMA, PHI, G;
+	Doub Y, R0, KAPPA, THETA_V, SIGMA, PHI, R0MAX, G;
 	//Int NSTEPS;
 	//R0 = 0.1;
 	//KAPPA = 10.0;
 	//THETA_V = 6.0;
 	SIGMA = 2.0;
 	//PHI = 15.0;
-	cout << "Enter values for R0, KAPPA, THETA_V, and PHI:\n";
+	/*cout << "Enter values for R0, KAPPA, THETA_V, and PHI:\n";
 	cin >> R0 >> KAPPA >> THETA_V >> PHI;
-	G = R0;
+	G = R0;*/
 
 	// Perform some root finder tests. Counting number of steps to convergence.
 	//FILE * ofile;
@@ -249,7 +274,7 @@ int main(void)
 	//fprintf(ofile, "PHI\tR\tNSTEPS\n");
 	//for (int p = 0; p <= NSTEPS; p++) {
 	//	PHI = 360.0*TORAD*p / NSTEPS;
-	//	//RootFunc fx(R0, KAPPA, THETA_V, SIGMA, PHI*TORAD);
+	//	//RootFuncPhi fx(R0, KAPPA, THETA_V, SIGMA, PHI*TORAD);
 	//	integrandPhi fx(R0, KAPPA, THETA_V*TORAD, SIGMA, PHI);
 	//	pair <Doub, Int> root = rtnewt(fx, G, 1.0e-11);
 	//	fprintf(ofile, "%f\t%f\t%d\n", PHI, root.first, root.second);
@@ -262,14 +287,26 @@ int main(void)
 	//ofile = fopen("phi-integration-test.txt", "w");
 	//fprintf(ofile, "rp\tn\tj\tx\tphi\tsum\n");
 	//fclose(ofile);
-	//integrandPhi intFunc(R0, KAPPA, THETA_V*TORAD, SIGMA, PHI*TORAD);
-	////Doub intVal = qsimpPhi(intFunc, 0.0, 2.0*M_PI);
+	//integrandPhi intFunc(R0, KAPPA, THETA_V*TORAD, SIGMA);
+	//Doub intVal = qsimpPhi(intFunc, 0.0, 2.0*M_PI);
 	//Doub intVal = qrombPhi(intFunc, 0.0, 2.0*M_PI);
 	
-	RootFunc rFunc(R0, KAPPA, THETA_V*TORAD, SIGMA, PHI*TORAD);
-	Doub rootVal = rtnewt(rFunc, G, 1.0e-11);
-	cout << rootVal;
-    cin.get();
+	//RootFuncPhi rFunc(R0, KAPPA, THETA_V*TORAD, SIGMA, PHI*TORAD);
+	//Doub rootVal = rtnewt(rFunc, G, 1.0e-11);
+	//cout << "root = " << rootVal << " integrand = " << intVal << endl;
+    //cin.ignore();
+
+    // Test out the r0 integration.
+    cout << "Enter values for Y, KAPPA, THETA_V, and PHI:\n";
+    cin >> Y >> KAPPA >> THETA_V >> PHI;
+    RootFuncR0 rFunc(Y, KAPPA, SIGMA, THETA_V*TORAD);
+    R0MAX = rtnewt(rFunc, 0.4, 1.0e-7);
+    cout << "R0Max = " << R0MAX << endl;
+    
+    integrandR0 iFunc(Y, KAPPA, SIGMA, THETA_V*TORAD);
+    Doub intVal = qromb(iFunc, 0.1, R0MAX);
+
+    cout << "Y integral = " << intVal << endl;
 
 	// Run a test to better understand the Trapzd method.
 	/*Int n, it, j;

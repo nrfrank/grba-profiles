@@ -42,7 +42,8 @@ def surfacePlot_r0Phi(num, yVal, kap, sig, thv, gA = 1.0, k = 0.0, p = 2.2):
             else:
                 f = (rP/R[i][j])**2.0
             guess = rP
-            F_[i][j] = f*fluxG_fullStr(R[i][j], yVal, kap, sig, thv, gA, k, p)
+            # F_[i][j] = f*fluxG_fullStr(R[i][j], yVal, kap, sig, thv, gA, k, p)
+            F_[i][j] = f
             # flux.append(fluxG_fullStr(R[i][j], yVal, kap, sig, thv)*f)
         # flux = [f/max(flux) for f in flux]
     
@@ -93,15 +94,15 @@ def surfacePlot_r0Phi_3D(num, yVal, kap, sig, thv, gA = 1.0, k = 0.0, p = 2.2):
     return F_
 
 def main():
-    N = 100
+    N = 1000
     TINY = np.power(10.0, -3.0)
     KAPPA = 1.0
     SIGMA = 2.0
     THETA_V = np.radians(6.0)
-    Y_VAL = 0.25
+    Y_VAL = 0.1
     R_MAX = r0_max(Y_VAL, KAPPA, SIGMA, THETA_V, gA = 1.0, k = 0.0, p = 2.2)
-    # F_PHI = surfacePlot_r0Phi(N, Y_VAL, KAPPA, SIGMA, THETA_V)
-    F_PHI = surfacePlot_r0Phi_3D(N, Y_VAL, KAPPA, SIGMA, THETA_V)
+    F_PHI = surfacePlot_r0Phi(N, Y_VAL, KAPPA, SIGMA, THETA_V)
+    # F_PHI = surfacePlot_r0Phi_3D(N, Y_VAL, KAPPA, SIGMA, THETA_V)
 
 if __name__ == "__main__":
     sys.exit(int(main() or 0))
