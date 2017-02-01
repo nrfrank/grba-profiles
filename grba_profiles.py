@@ -78,8 +78,8 @@ def main():
     SIGMA = 2.0
     #KAPPA = tiny
     for kap in range(10):
-        KAPPA = np.power(10.0, -float(kap + 1))
-        #KAPPA = float(kap) + 0.01
+        # KAPPA = np.power(10.0, -float(kap + 1))
+        KAPPA = float(kap) + 0.01
         #oa_str_int = nquad(fluxG_oaStr, [bounds_chi, bounds_y], args = (KAPPA, SIGMA))[0]
         oa_str_int = nquad(fluxG_oaStr, [bounds_y, bounds_chi], args = (KAPPA, SIGMA))[0]
         str_int = nquad(fluxG_fullStr, [bounds_ry, bounds_yr], args = (KAPPA, SIGMA, 0.0))[0]
